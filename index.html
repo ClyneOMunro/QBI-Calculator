@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QBI Deduction Calculator — Rose Financial Management</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Cormorant+Garamond:wght@400;600;700&display=swap" rel="stylesheet">
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          navy: '#16293c',
+          'navy-light': '#152535',
+          'navy-mid': '#254d6a',
+          teal: '#61c08e',
+          'teal-active': '#2DD4BF',
+          mint: '#addbc2',
+        },
+        fontFamily: {
+          sans: ['Inter', 'sans-serif'],
+          serif: ['Cormorant Garamond', 'serif'],
+        }
+      }
+    }
+  }
+</script>
+<style>
+  body { background-color: #16293c; color: #e2e8f0; font-family: 'Inter', sans-serif; }
+
+  .tooltip-wrap { position: relative; display: inline-block; }
+  .tooltip-box {
+    display: none; position: absolute; z-index: 50; bottom: calc(100% + 6px); left: 50%;
+    transform: translateX(-50%); width: 270px; background: #254d6a; border: 1px solid #2DD4BF;
+    color: #e2e8f0; font-size: 12px; line-height: 1.55; padding: 9px 11px; border-radius: 4px;
+    pointer-events: none;
+  }
+  .tooltip-wrap:hover .tooltip-box { display: block; }
+
+  input[type=text], input[type=number], select {
+    background: #1e3649; border: 1px solid #345e7a; color: #e2e8f0;
+    padding: 8px 12px; border-radius: 4px; width: 100%; outline: none;
+    font-family: 'Inter', sans-serif; font-size: 14px;
+  }
+  input:focus, select:focus { border-color: #61c08e; }
+
+  .toggle-group { display: flex; border: 1px solid #345e7a; border-radius: 4px; overflow: hidden; }
+  .toggle-btn {
+    flex: 1; padding: 7px 12px; font-size: 13px; cursor: pointer; text-align: center;
+    background: #1e3649; color: #94a3b8; border: none; transition: all 0.15s; font-family: 'Inter', sans-serif;
+  }
+  .toggle-btn.active { background: #61c08e; color: #16293c; font-weight: 600; }
+
+  .fc-node {
+    border: 2px solid #345e7a; background: #1e3649; color: #94a3b8;
+    transition: all 0.3s;
+  }
+  .fc-node.active {
+    border-color: #2DD4BF; background: #1a3f52; color: #e2e8f0;
+    box-shadow: 0 0 12px rgba(45,212,191,0.2);
+  }
+  .fc-node.inactive { opacity: 0.3; }
+
+  .fc-arrow { background: #345e7a; transition: background 0.3s; }
+  .fc-arrow.active { background: #2DD4BF; }
+
+  .sens-delta-pos { color: #61c08e; }
+  .sens-delta-neg { color: #f87171; }
+
+  .sens-row {
+    display: grid; grid-template-columns: 1fr auto auto; gap: 8px;
+    padding: 8px 0; border-bottom: 1px solid #254d6a;
+    cursor: pointer; align-items: center; transition: background 0.15s;
+  }
+  .sens-row:hover { background: rgba(45,212,191,0.04); }
+  .sens-label { font-size: 12px; color: #cbd5e1; display: flex; align-items: center; gap: 6px; }
+  .sens-chevron { font-size: 9px; color: #475569; transition: transform 0.2s; display: inline-block; flex-shrink: 0; }
+  .sens-chevron.open { transform: rotate(90deg); color: #2DD4BF; }
+  .sens-detail {
+    display: none; padding: 10px 12px 12px 20px;
+    border-bottom: 1px solid #254d6a; background: rgba(22,41,60,0.6);
+  }
+  .sens-detail.open { display: block; }
+  .sens-detail p { font-size: 12px; color: #94a3b8; line-height: 1.65; margin-bottom: 8px; }
+  .sens-detail p:last-of-type { margin-bottom: 6px; }
+  .sens-ref { font-size: 11px; color: #475569; font-style: italic; }
+
+  #pdf-output { display: none; }
+
+  /* Threshold editor modal */
+  #modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+    z-index: 1000; align-items: center; justify-content: center;
+  }
+  #modal-overlay.open { display: flex; }
+  #modal-box {
+    background: #1e3649; border: 1px solid #345e7a; border-radius: 6px;
+    width: 600px; max-width: 96vw; max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 20px; border-bottom: 1px solid #254d6a;
+  }
+  .modal-body { padding: 20px; }
+  .modal-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 20px; border-top: 1px solid #254d6a;
+  }
+  .modal-year-card {
+    border: 1px solid #254d6a; border-radius: 4px; margin-bottom: 16px; overflow: hidden;
+  }
+  .modal-year-header {
+    background: #16293c; padding: 8px 14px; display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid #254d6a;
+  }
+  .modal-grid {
+    display: grid; grid-template-columns: 140px 1fr 1fr; gap: 1px;
+    background: #254d6a; font-size: 12px;
+  }
+  .modal-grid-cell {
+    background: #1e3649; padding: 7px 10px;
+  }
+  .modal-grid-cell input {
+    background: #16293c; border: 1px solid #2a4d65; color: #e2e8f0;
+    padding: 4px 8px; border-radius: 3px; width: 100%; font-size: 12px;
+    font-family: 'Inter', sans-serif;
+  }
+  .modal-grid-cell input:focus { border-color: #61c08e; outline: none; }
+  .modal-col-header { background: #162f42; color: #64748b; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- HEADER -->
+<div class="border-b px-6 py-4 flex items-center justify-between" style="background:#16293c;border-color:#254d6a;">
+  <div>
+    <h1 class="font-serif text-2xl text-white tracking-wide">QBI Deduction Calculator</h1>
+    <p id="year-subtitle" class="text-xs mt-0.5" style="color:#64748b;">&#167;199A Qualified Business Income &#8212; 2025 Thresholds</p>
+  </div>
+  <div class="flex items-center gap-3">
+    <!-- Tax Year Toggle (built dynamically by buildYearToggles()) -->
+    <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+      <span style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Tax Year</span>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div id="year-toggle-btns" class="toggle-group" style="border-color:#345e7a;"></div>
+        <button onclick="openThresholdEditor()" title="Edit threshold constants"
+          style="background:transparent;border:1px solid #345e7a;color:#94a3b8;border-radius:4px;padding:5px 9px;font-size:12px;cursor:pointer;line-height:1;transition:all 0.15s;"
+          onmouseover="this.style.borderColor='#2DD4BF';this.style.color='#2DD4BF';"
+          onmouseout="this.style.borderColor='#345e7a';this.style.color='#94a3b8';">
+          &#9998; Edit
+        </button>
+      </div>
+    </div>
+    <div style="width:1px;height:32px;background:#254d6a;"></div>
+    <input type="text" id="advisor-name" placeholder="Advisor name" style="width:160px;font-size:12px;padding:5px 9px;">
+    <button onclick="exportPDF()" class="px-4 py-2 text-sm font-semibold rounded" style="background:#61c08e;color:#16293c;">
+      Export Client Summary
+    </button>
+  </div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="max-w-7xl mx-auto px-4 py-6" style="display:grid;grid-template-columns:340px 1fr;gap:24px;">
+
+  <!-- LEFT: Inputs -->
+  <div>
+    <div class="p-4 rounded" style="background:#1e3649;border:1px solid #254d6a;">
+      <h2 class="text-xs font-semibold uppercase tracking-widest mb-4" style="color:#64748b;">Client Inputs</h2>
+
+      <div class="mb-3">
+        <label class="block text-xs mb-1 flex items-center gap-1" style="color:#94a3b8;">
+          Client Name
+          <span class="tooltip-wrap">
+            <span style="color:#2DD4BF;cursor:pointer;font-size:11px;">ⓘ</span>
+            <span class="tooltip-box">Used in the PDF export header only — no tax significance. Enter the client's full legal name or household name as it should appear on the printed summary.</span>
+          </span>
+        </label>
+        <input type="text" id="client-name" placeholder="e.g. John & Jane Smith">
+      </div>
+
+      <div class="mb-3">
+        <label class="block text-xs mb-1 flex items-center gap-1" style="color:#94a3b8;">
+          Filing Status
+          <span class="tooltip-wrap">
+            <span style="color:#2DD4BF;cursor:pointer;font-size:11px;">ⓘ</span>
+            <span class="tooltip-box">Determines which income thresholds apply. MFJ thresholds are exactly double the single/other filer thresholds. Find on Form 1040, Line 1 (filing status checkboxes at the top of the return).</span>
+          </span>
+        </label>
+        <div class="toggle-group">
+          <button class="toggle-btn active" onclick="setToggle('filing','mfj',this)">Married Filing Jointly</button>
+          <button class="toggle-btn" onclick="setToggle('filing','other',this)">All Other Filers</button>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="block text-xs mb-1 flex items-center gap-1" style="color:#94a3b8;">
+          Taxable Income
+          <span class="tooltip-wrap">
+            <span style="color:#2DD4BF;cursor:pointer;font-size:11px;">ⓘ</span>
+            <span class="tooltip-box">Found on Form 1040, Line 15. This is gross income minus all deductions (standard or itemized), before the QBI deduction itself is applied. Use the projected figure for planning purposes.</span>
+          </span>
+        </label>
+        <input type="text" id="taxable-income" placeholder="$0" oninput="handleInput(this,'taxableIncome')" onfocus="clearFmt(this)" onblur="applyFmt(this)">
+      </div>
+
+      <div class="mb-3">
+        <label class="block text-xs mb-1 flex items-center gap-1" style="color:#94a3b8;">
+          Business Type
+          <span class="tooltip-wrap">
+            <span style="color:#2DD4BF;cursor:pointer;font-size:11px;">ⓘ</span>
+            <span class="tooltip-box">Specified Service Trade or Business (SSTB) — includes law, accounting, consulting, financial services, health, and any trade where the principal asset is the reputation or skill of its employees. Non-SSTB businesses (manufacturing, real estate, restaurants, etc.) face no SSTB phase-out. When in doubt, refer to IRC §1202(e)(3)(A) or consult the client's tax preparer.</span>
+          </span>
+        </label>
+        <div class="toggle-group">
+          <button class="toggle-btn active" onclick="setToggle('btype','non-sstb',this)">Non-SSTB</button>
+          <button class="toggle-btn" onclick="setToggle('btype','sstb',this)">SSTB</button>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="block text-xs mb-1 flex items-center gap-1" style="color:#94a3b8;">
+          Qualified Business Income (QBI)
+          <span class="tooltip-wrap">
+            <span style="color:#2DD4BF;cursor:pointer;font-size:11px;">ⓘ</span>
+            <span class="tooltip-box">Net income, gain, deduction, and loss from the qualified trade or business — excluding capital gains, dividends, and interest. For S-corps and partnerships, find on Schedule K-1, Box 17 (Code V) or Box 20 (Code Z). For sole proprietors, use Schedule C net profit minus any §179/bonus depreciation recapture.</span>
+          </span>
+        </label>
+        <input type="text" id="qbi" placeholder="$0" oninput="handleInput(this,'qbi')" onfocus="clearFmt(this)" onblur="applyFmt(this)">
+      </div>
+
+      <div class="mb-3">
+        <label class="block text-xs mb-1 flex items-center gap-1" style="color:#94a3b8;">
+          W-2 Wages Paid
+          <span class="tooltip-wrap">
+            <span style="color:#2DD4BF;cursor:pointer;font-size:11px;">ⓘ</span>
+            <span class="tooltip-box">Total W-2 wages paid by the business and reported to the Social Security Administration — includes all employee wages plus the S-corp owner's own W-2 compensation. Find on Form W-3 (Box 1, Total Wages) or from the business payroll summary. Zero for sole proprietors with no employees.</span>
+          </span>
+        </label>
+        <input type="text" id="w2-wages" placeholder="$0" oninput="handleInput(this,'w2Wages')" onfocus="clearFmt(this)" onblur="applyFmt(this)">
+      </div>
+
+      <div class="mb-3">
+        <label class="block text-xs mb-1 flex items-center gap-1" style="color:#94a3b8;">
+          Qualified Property (Unadjusted Basis)
+          <span class="tooltip-wrap">
+            <span style="color:#2DD4BF;cursor:pointer;font-size:11px;">ⓘ</span>
+            <span class="tooltip-box">Original purchase price (not depreciated book value) of tangible depreciable property used in the business. Must be in service during the year and within its depreciable recovery period or the last 10 years. Find on Form 8995-A, Schedule B, or the client's depreciation schedule (Form 4562). Includes equipment, vehicles, furniture, and real property.</span>
+          </span>
+        </label>
+        <input type="text" id="qual-property" placeholder="$0" oninput="handleInput(this,'qualProperty')" onfocus="clearFmt(this)" onblur="applyFmt(this)">
+      </div>
+
+      <div class="mb-3">
+        <label class="block text-xs mb-1 flex items-center gap-1" style="color:#94a3b8;">
+          REIT Dividends
+          <span class="tooltip-wrap">
+            <span style="color:#2DD4BF;cursor:pointer;font-size:11px;">ⓘ</span>
+            <span class="tooltip-box">Qualified REIT dividends receive a standalone 20% deduction regardless of income level — they are not subject to the W-2 wage limitation. Find on Form 1099-DIV, Box 5 (Section 199A dividends). Does not include dividends from REIT ETFs held in tax-advantaged accounts.</span>
+          </span>
+        </label>
+        <input type="text" id="reit-div" placeholder="$0" oninput="handleInput(this,'reitDiv')" onfocus="clearFmt(this)" onblur="applyFmt(this)">
+      </div>
+
+      <div class="mb-3">
+        <label class="block text-xs mb-1 flex items-center gap-1" style="color:#94a3b8;">
+          PTP Income
+          <span class="tooltip-wrap">
+            <span style="color:#2DD4BF;cursor:pointer;font-size:11px;">ⓘ</span>
+            <span class="tooltip-box">Qualified income from Publicly Traded Partnerships (master limited partnerships, pipeline MLPs, etc.) also receives a separate 20% deduction not subject to wage limits. Find on Schedule K-1 from the PTP investment. Note: PTP losses carry forward and offset future PTP income — enter net figure only.</span>
+          </span>
+        </label>
+        <input type="text" id="ptp-income" placeholder="$0" oninput="handleInput(this,'ptpIncome')" onfocus="clearFmt(this)" onblur="applyFmt(this)">
+      </div>
+
+      <p class="text-xs leading-relaxed mt-3" style="color:#475569;">
+        For planning purposes only. Does not model the taxable income cap per §199A(a)(2)(B) or loss carryforward rules.
+      </p>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div style="display:flex;flex-direction:column;gap:24px;">
+
+    <!-- FLOWCHART -->
+    <div class="p-4 rounded" style="background:#1e3649;border:1px solid #254d6a;">
+      <h2 class="text-xs font-semibold uppercase tracking-widest mb-4" style="color:#64748b;">§199A Decision Path</h2>
+      <div id="flowchart"></div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="p-4 rounded" style="background:#1e3649;border:1px solid #254d6a;">
+      <h2 class="text-xs font-semibold uppercase tracking-widest mb-3" style="color:#64748b;">Results</h2>
+
+      <div class="mb-5">
+        <p class="text-sm" style="color:#94a3b8;">Estimated QBI Deduction</p>
+        <p id="result-headline" class="font-serif text-white mt-1" style="font-size:42px;line-height:1;">$0</p>
+        <p id="result-verdict" class="text-sm mt-1" style="color:#61c08e;"></p>
+      </div>
+
+      <!-- Threshold Bar -->
+      <div class="mb-5">
+        <p class="text-xs mb-2" style="color:#94a3b8;">Taxable Income vs. Thresholds</p>
+        <div id="threshold-bar-wrap"></div>
+      </div>
+
+      <!-- Breakdown -->
+      <div class="mb-5">
+        <p class="text-xs font-semibold uppercase tracking-widest mb-2" style="color:#64748b;">Calculation Breakdown</p>
+        <div id="calc-breakdown" style="display:flex;flex-direction:column;gap:2px;"></div>
+      </div>
+
+      <!-- Sensitivity -->
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-widest mb-2" style="color:#64748b;">What Could Change This</p>
+        <div style="font-size:10px;color:#475569;margin-bottom:6px;">Click any scenario to expand.</div>
+        <div style="border-top:1px solid #254d6a;">
+          <!-- Header row -->
+          <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;padding:4px 0 6px;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">
+            <span>Scenario</span>
+            <span style="text-align:right;">New Deduction</span>
+            <span style="text-align:right;min-width:52px;">Change</span>
+          </div>
+          <div id="sensitivity-table"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PDF OUTPUT (hidden) -->
+<div id="pdf-output">
+  <div id="pdf-inner" style="font-family:'Inter',sans-serif;color:#111;padding:22px 28px;max-width:720px;margin:0 auto;">
+
+    <div style="border-bottom:2px solid #16293c;padding-bottom:8px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:flex-end;">
+      <div style="font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:700;color:#16293c;">QBI Deduction Analysis</div>
+      <div style="font-size:11px;color:#666;text-align:right;">
+        <div id="pdf-client-name"></div>
+        <div id="pdf-date"></div>
+      </div>
+    </div>
+
+    <div style="background:#f0faf5;border-left:4px solid #61c08e;padding:8px 12px;margin-bottom:10px;display:flex;align-items:baseline;gap:16px;">
+      <div id="pdf-deduction-headline" style="font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:700;color:#16293c;white-space:nowrap;"></div>
+      <div id="pdf-verdict-text" style="font-size:12px;color:#333;"></div>
+    </div>
+
+    <!-- Client Inputs Summary -->
+    <div style="margin-bottom:10px;border:1px solid #e0e0e0;border-radius:3px;overflow:hidden;">
+      <div style="background:#f5f5f5;padding:4px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#555;">Client Inputs</div>
+      <div id="pdf-inputs" style="display:grid;grid-template-columns:1fr 1fr;gap:0;padding:6px 10px;"></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:10px;">
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#555;margin-bottom:4px;">Your Path</div>
+        <div id="pdf-path" style="font-size:11px;color:#222;line-height:1.65;"></div>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#555;margin-bottom:4px;">The Math</div>
+        <div id="pdf-math" style="font-size:11px;"></div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:10px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#555;margin-bottom:4px;">What Could Change This</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;">
+        <thead>
+          <tr style="border-bottom:1px solid #ccc;color:#666;font-size:10px;">
+            <th style="text-align:left;padding:3px 0;font-weight:600;">Scenario</th>
+            <th style="text-align:right;padding:3px 0;font-weight:600;">New Deduction</th>
+            <th style="text-align:right;padding:3px 0;font-weight:600;">Change</th>
+          </tr>
+        </thead>
+        <tbody id="pdf-sensitivity"></tbody>
+      </table>
+    </div>
+
+    <div style="background:#f8f8f8;padding:7px 10px;font-size:10px;color:#666;line-height:1.5;margin-bottom:8px;">
+      <span id="pdf-disclaimer">This analysis is for educational and planning purposes only and does not constitute tax advice. Please consult a qualified tax professional before making decisions based on this information. Calculations use 2025 IRS thresholds.</span>
+    </div>
+
+    <div style="border-top:1px solid #ccc;padding-top:6px;font-size:10px;color:#888;" id="pdf-footer"></div>
+  </div>
+</div>
+
+<!-- THRESHOLD EDITOR MODAL -->
+<div id="modal-overlay" onclick="if(event.target===this)closeThresholdEditor()">
+  <div id="modal-box">
+    <div class="modal-header">
+      <div>
+        <div style="font-weight:600;font-size:15px;color:#e2e8f0;">Threshold Constants Editor</div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px;">Changes save to this browser only. Edit the source file to update defaults for all visitors.</div>
+      </div>
+      <button onclick="closeThresholdEditor()" style="background:none;border:none;color:#64748b;font-size:22px;cursor:pointer;line-height:1;padding:0 4px;">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <div style="background:#16293c;border:1px solid #254d6a;border-radius:4px;padding:10px 14px;margin-bottom:18px;font-size:12px;color:#94a3b8;line-height:1.7;">
+        The §199A thresholds are published each fall in an IRS Revenue Procedure for the following tax year.
+        <br>
+        <a href="https://www.irs.gov/businesses/small-businesses-self-employed/qualified-business-income-deduction" target="_blank" style="color:#2DD4BF;">IRS: Qualified Business Income Deduction overview</a>
+        &nbsp;&mdash;&nbsp;
+        <a href="https://www.irs.gov/newsroom/irs-provides-tax-inflation-adjustments-for-tax-year-2025" target="_blank" style="color:#2DD4BF;">IRS: Annual inflation adjustments (change year in URL)</a>
+      </div>
+      <div id="modal-year-cards"></div>
+    </div>
+
+    <div class="modal-footer">
+      <button onclick="resetToDefaults()" style="background:none;border:1px solid #345e7a;color:#94a3b8;padding:7px 14px;border-radius:4px;font-size:13px;cursor:pointer;">
+        Reset to Defaults
+      </button>
+      <div style="display:flex;gap:10px;">
+        <button onclick="closeThresholdEditor()" style="background:none;border:1px solid #345e7a;color:#94a3b8;padding:7px 14px;border-radius:4px;font-size:13px;cursor:pointer;">
+          Cancel
+        </button>
+        <button onclick="saveThresholdEdits()" style="background:#61c08e;border:none;color:#16293c;padding:7px 16px;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;">
+          Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// YEAR CONFIG — edit via the modal UI, or update defaults here
+// Each entry: { label, mfj: {threshold, phaseRange, fullLimit}, other: {...} }
+// Add a new entry each January. fullLimit = threshold + phaseRange.
+// ============================================================
+const DEFAULT_YEAR_CONFIG = [
+  {
+    label: '2025',
+    mfj:   { threshold: 394600, phaseRange: 100000, fullLimit: 494600 },
+    other: { threshold: 197300, phaseRange:  50000, fullLimit: 247300 },
+  },
+  {
+    // NOTE: 2026 thresholds are ESTIMATED (~2.8% COLA from 2025).
+    // Verify against IRS Rev. Proc. once published (expected late 2025).
+    label: '2026',
+    mfj:   { threshold: 406400, phaseRange: 100000, fullLimit: 506400 },
+    other: { threshold: 203200, phaseRange:  50000, fullLimit: 253200 },
+  },
+];
+
+// Live config — may be overridden by localStorage
+let YEAR_CONFIG = DEFAULT_YEAR_CONFIG.map(y => JSON.parse(JSON.stringify(y)));
+
+// Active thresholds for the selected year (has .mfj and .other keys)
+let THRESHOLDS = YEAR_CONFIG[0];
+
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  taxYearIdx: 0,   // index into YEAR_CONFIG
+  filing: 'mfj',
+  btype: 'non-sstb',
+  taxableIncome: 0,
+  qbi: 0,
+  w2Wages: 0,
+  qualProperty: 0,
+  reitDiv: 0,
+  ptpIncome: 0,
+};
+
+// ============================================================
+// INPUT HANDLING
+// ============================================================
+
+// Strip formatting on focus so the user can edit the raw number
+function clearFmt(el) {
+  const raw = el.value.replace(/[^0-9.]/g, '');
+  el.value = raw || '';
+}
+
+// Re-apply $X,XXX formatting when the field loses focus
+function applyFmt(el) {
+  const raw = el.value.replace(/[^0-9.]/g, '');
+  const n = parseFloat(raw) || 0;
+  el.value = n > 0 ? '$' + Math.round(n).toLocaleString('en-US') : '';
+}
+
+function handleInput(el, key) {
+  const raw = el.value.replace(/[^0-9.]/g, '');
+  state[key] = parseFloat(raw) || 0;
+  recalcAll();
+}
+
+function setToggle(type, val, btn) {
+  btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (type === 'filing') state.filing = val;
+  if (type === 'btype') state.btype = val;
+  recalcAll();
+}
+
+function setTaxYear(idx) {
+  state.taxYearIdx = idx;
+  THRESHOLDS = YEAR_CONFIG[idx];
+  document.querySelectorAll('.year-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.idx) === idx);
+  });
+  document.getElementById('year-subtitle').textContent =
+    '\u00a7199A Qualified Business Income \u2014 ' + YEAR_CONFIG[idx].label + ' Thresholds';
+  recalcAll();
+}
+
+// Rebuild the year toggle buttons from YEAR_CONFIG
+function buildYearToggles() {
+  const wrap = document.getElementById('year-toggle-btns');
+  wrap.innerHTML = YEAR_CONFIG.map((yc, i) =>
+    `<button class="toggle-btn year-btn${i === state.taxYearIdx ? ' active' : ''}"
+       data-idx="${i}" onclick="setTaxYear(${i})"
+       style="padding:5px 14px;font-size:13px;">${yc.label}</button>`
+  ).join('');
+}
+
+// ── Threshold editor modal ──────────────────────────────────
+
+function openThresholdEditor() {
+  const cards = document.getElementById('modal-year-cards');
+  cards.innerHTML = YEAR_CONFIG.map((yc, i) => `
+    <div class="modal-year-card">
+      <div class="modal-year-header">
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#64748b;">Year ${i + 1}</span>
+        <span style="font-size:11px;color:#94a3b8;">Label:</span>
+        <input id="edit-label-${i}" type="text" value="${yc.label}"
+          style="background:#1e3649;border:1px solid #345e7a;color:#e2e8f0;padding:3px 8px;border-radius:3px;width:80px;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;">
+      </div>
+      <div class="modal-grid">
+        <div class="modal-grid-cell modal-col-header"></div>
+        <div class="modal-grid-cell modal-col-header">Married Filing Jointly</div>
+        <div class="modal-grid-cell modal-col-header">All Other Filers</div>
+
+        <div class="modal-grid-cell" style="color:#94a3b8;display:flex;align-items:center;">
+          Threshold
+          <span style="font-size:10px;color:#475569;margin-left:4px;">(phase-in begins)</span>
+        </div>
+        <div class="modal-grid-cell"><input id="edit-${i}-mfj-threshold"   type="text" value="${yc.mfj.threshold.toLocaleString()}"   onfocus="clearFmt(this)" onblur="applyFmt(this)"></div>
+        <div class="modal-grid-cell"><input id="edit-${i}-other-threshold" type="text" value="${yc.other.threshold.toLocaleString()}" onfocus="clearFmt(this)" onblur="applyFmt(this)"></div>
+
+        <div class="modal-grid-cell" style="color:#94a3b8;display:flex;align-items:center;">
+          Phase-in Range
+          <span style="font-size:10px;color:#475569;margin-left:4px;">(statutory, rarely changes)</span>
+        </div>
+        <div class="modal-grid-cell"><input id="edit-${i}-mfj-phaseRange"   type="text" value="${yc.mfj.phaseRange.toLocaleString()}"   onfocus="clearFmt(this)" onblur="applyFmt(this)"></div>
+        <div class="modal-grid-cell"><input id="edit-${i}-other-phaseRange" type="text" value="${yc.other.phaseRange.toLocaleString()}" onfocus="clearFmt(this)" onblur="applyFmt(this)"></div>
+
+        <div class="modal-grid-cell" style="color:#94a3b8;display:flex;align-items:center;">
+          Full Limit
+          <span style="font-size:10px;color:#475569;margin-left:4px;">(= threshold + range)</span>
+        </div>
+        <div class="modal-grid-cell"><input id="edit-${i}-mfj-fullLimit"   type="text" value="${yc.mfj.fullLimit.toLocaleString()}"   onfocus="clearFmt(this)" onblur="applyFmt(this)"></div>
+        <div class="modal-grid-cell"><input id="edit-${i}-other-fullLimit" type="text" value="${yc.other.fullLimit.toLocaleString()}" onfocus="clearFmt(this)" onblur="applyFmt(this)"></div>
+      </div>
+    </div>`
+  ).join('');
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeThresholdEditor() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function parseModalNum(id) {
+  const val = document.getElementById(id)?.value || '0';
+  return parseInt(val.replace(/[^0-9]/g, ''), 10) || 0;
+}
+
+function saveThresholdEdits() {
+  YEAR_CONFIG = YEAR_CONFIG.map((_, i) => ({
+    label:  document.getElementById(`edit-label-${i}`).value.trim() || String(i + 1),
+    mfj: {
+      threshold:  parseModalNum(`edit-${i}-mfj-threshold`),
+      phaseRange: parseModalNum(`edit-${i}-mfj-phaseRange`),
+      fullLimit:  parseModalNum(`edit-${i}-mfj-fullLimit`),
+    },
+    other: {
+      threshold:  parseModalNum(`edit-${i}-other-threshold`),
+      phaseRange: parseModalNum(`edit-${i}-other-phaseRange`),
+      fullLimit:  parseModalNum(`edit-${i}-other-fullLimit`),
+    },
+  }));
+  // Persist to localStorage
+  localStorage.setItem('qbi-year-config', JSON.stringify(YEAR_CONFIG));
+  // Keep active year idx valid
+  if (state.taxYearIdx >= YEAR_CONFIG.length) state.taxYearIdx = 0;
+  THRESHOLDS = YEAR_CONFIG[state.taxYearIdx];
+  buildYearToggles();
+  setTaxYear(state.taxYearIdx);
+  closeThresholdEditor();
+}
+
+function resetToDefaults() {
+  if (!confirm('Reset all threshold values to the original defaults?')) return;
+  YEAR_CONFIG = DEFAULT_YEAR_CONFIG.map(y => JSON.parse(JSON.stringify(y)));
+  localStorage.removeItem('qbi-year-config');
+  state.taxYearIdx = 0;
+  THRESHOLDS = YEAR_CONFIG[0];
+  buildYearToggles();
+  setTaxYear(0);
+  closeThresholdEditor();
+}
+
+function loadSavedConfig() {
+  try {
+    const saved = localStorage.getItem('qbi-year-config');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length) YEAR_CONFIG = parsed;
+    }
+  } catch(e) { /* ignore corrupt storage */ }
+}
+
+function fmt(n) {
+  return '$' + Math.round(n).toLocaleString('en-US');
+}
+
+// ============================================================
+// CALCULATION ENGINE
+// ============================================================
+function calcQBI(s) {
+  const T = THRESHOLDS[s.filing];
+  const { taxableIncome: ti, qbi, w2Wages, qualProperty, reitDiv, ptpIncome, btype } = s;
+
+  const steps = [];
+  let path = [];
+  let zone = 'below';
+
+  const base20  = qbi * 0.20;
+  const reitPTP = (reitDiv + ptpIncome) * 0.20;
+
+  steps.push({ label: 'QBI × 20%', value: base20 });
+  if (reitDiv > 0 || ptpIncome > 0) {
+    steps.push({ label: '(REIT Dividends + PTP Income) × 20%', value: reitPTP });
+  }
+
+  // ── STEP 1: Below threshold → full deduction ──────────────
+  if (ti <= T.threshold) {
+    zone = 'below';
+    const deduction = base20 + reitPTP;
+    steps.push({ label: 'Income at or below threshold - full 20% deduction applies', value: deduction, highlight: true });
+    path = btype === 'sstb'
+      ? ['node-sstb', 'node-sstb-threshold', 'node-outcome-sstb-full']
+      : ['node-sstb', 'node-threshold', 'node-outcome-full'];
+    return { deduction, steps, path, zone };
+  }
+
+  // ── STEP 2: SSTB path ─────────────────────────────────────
+  if (btype === 'sstb') {
+    path.push('node-sstb', 'node-sstb-threshold');
+
+    if (ti >= T.fullLimit) {
+      // Fully phased out
+      zone = 'above';
+      const deduction = reitPTP;
+      steps.push({ label: 'SSTB + income at or above full limit: QBI deduction eliminated', value: 0, highlight: true });
+      if (reitPTP > 0) steps.push({ label: 'REIT/PTP deduction still applies', value: reitPTP });
+      steps.push({ label: 'Total deduction', value: deduction, highlight: true });
+      path.push('node-over-full', 'node-outcome-zero');
+      return { deduction, steps, path, zone };
+    }
+
+    // In phase-in range
+    zone = 'phase';
+    const pr = (ti - T.threshold) / T.phaseRange; // phase ratio
+    const adjQBI  = qbi * (1 - pr);
+    const adjW2   = w2Wages * (1 - pr);
+    const adjProp = qualProperty * (1 - pr);
+
+    steps.push({ label: 'Phase-in ratio', value: pr, format: 'pct', note: `(${fmt(ti)} − ${fmt(T.threshold)}) ÷ ${fmt(T.phaseRange)}` });
+    steps.push({ label: 'Adjusted QBI (SSTB phase-in)', value: adjQBI });
+    steps.push({ label: 'Adjusted W-2 wages', value: adjW2 });
+    steps.push({ label: 'Adjusted qualified property', value: adjProp });
+
+    const limA = adjW2 * 0.50;
+    const limB = adjW2 * 0.25 + adjProp * 0.025;
+    const wageLimit = Math.max(limA, limB);
+
+    steps.push({ label: 'W-2 limit (a): 50% of adjusted wages', value: limA });
+    steps.push({ label: 'W-2 limit (b): 25% wages + 2.5% property', value: limB });
+    steps.push({ label: 'W-2/property limit (greater of a, b)', value: wageLimit });
+
+    const qbiPortion = Math.min(adjQBI * 0.20, wageLimit);
+    const deduction  = qbiPortion + reitPTP;
+
+    steps.push({ label: 'Lesser of adj. QBI × 20% or W-2 limit', value: qbiPortion, highlight: true });
+    if (reitPTP > 0) steps.push({ label: '+ REIT/PTP deduction', value: reitPTP });
+    steps.push({ label: 'Total deduction', value: deduction, highlight: true });
+    path.push('node-over-full', 'node-outcome-sstb-reduced');
+    return { deduction, steps, path, zone };
+  }
+
+  // ── STEP 3: Non-SSTB ──────────────────────────────────────
+  path.push('node-sstb', 'node-threshold');
+
+  const limA = w2Wages * 0.50;
+  const limB = w2Wages * 0.25 + qualProperty * 0.025;
+  const wageLimit = Math.max(limA, limB);
+
+  steps.push({ label: 'W-2 limit (a): 50% of W-2 wages', value: limA });
+  steps.push({ label: 'W-2 limit (b): 25% wages + 2.5% property', value: limB });
+  steps.push({ label: 'W-2/property limit (greater of a, b)', value: wageLimit });
+
+  if (ti >= T.fullLimit) {
+    // Fully limited
+    zone = 'above';
+    const qbiPortion = Math.min(base20, wageLimit);
+    const deduction  = qbiPortion + reitPTP;
+    steps.push({ label: 'Income at or above full limit: W-2/property limitation fully applies', value: null });
+    steps.push({ label: 'Lesser of QBI × 20% or W-2 limit', value: qbiPortion, highlight: true });
+    if (reitPTP > 0) steps.push({ label: '+ REIT/PTP deduction', value: reitPTP });
+    steps.push({ label: 'Total deduction', value: deduction, highlight: true });
+    path.push('node-over-full', 'node-outcome-wage');
+    return { deduction, steps, path, zone };
+  }
+
+  // Phase-in range — limitation is phased in
+  zone = 'phase';
+  const pr = (ti - T.threshold) / T.phaseRange;
+  const effectiveLimit = base20 - pr * (base20 - wageLimit);
+  const deduction = effectiveLimit + reitPTP;
+
+  steps.push({ label: 'Phase-in ratio', value: pr, format: 'pct', note: `(${fmt(ti)} − ${fmt(T.threshold)}) ÷ ${fmt(T.phaseRange)}` });
+  steps.push({ label: 'Blended deduction (W-2 limit phased in)', value: effectiveLimit, note: 'QBI×20% reduced proportionally toward wage limit', highlight: true });
+  if (reitPTP > 0) steps.push({ label: '+ REIT/PTP deduction', value: reitPTP });
+  steps.push({ label: 'Total deduction', value: deduction, highlight: true });
+  path.push('node-phase-in', 'node-outcome-reduced');
+  return { deduction, steps, path, zone };
+}
+
+// ============================================================
+// FLOWCHART — renders once, updates classes on each calc
+// ============================================================
+function renderFlowchart() {
+  document.getElementById('flowchart').innerHTML = `
+  <div style="font-size:12px;min-width:520px;">
+
+    <!-- Row 1: SSTB? -->
+    <div style="display:flex;justify-content:center;margin-bottom:6px;">
+      <div id="node-sstb" class="fc-node rounded text-center" style="padding:10px 20px;width:260px;">
+        <div style="font-weight:600;font-size:13px;">Is this a Specified Service<br>Trade or Business (SSTB)?</div>
+      </div>
+    </div>
+
+    <!-- Arrow split -->
+    <div style="display:flex;justify-content:space-around;margin-bottom:4px;">
+      <div style="text-align:center;flex:1;">
+        <div id="arr-no" class="fc-arrow mx-auto" style="width:2px;height:22px;"></div>
+        <div style="color:#64748b;font-size:10px;">No</div>
+      </div>
+      <div style="flex:0.2;"></div>
+      <div style="text-align:center;flex:1;">
+        <div id="arr-yes" class="fc-arrow mx-auto" style="width:2px;height:22px;"></div>
+        <div style="color:#64748b;font-size:10px;">Yes</div>
+      </div>
+    </div>
+
+    <!-- Row 2: Two threshold nodes -->
+    <div style="display:flex;gap:16px;margin-bottom:6px;">
+      <div id="node-threshold" class="fc-node rounded text-center" style="flex:1;padding:10px;">
+        <div style="font-weight:600;">Income ≤ threshold?</div>
+        <div style="font-size:10px;margin-top:2px;opacity:0.6;">Non-SSTB path</div>
+      </div>
+      <div id="node-sstb-threshold" class="fc-node rounded text-center" style="flex:1;padding:10px;">
+        <div style="font-weight:600;">Income ≤ threshold?</div>
+        <div style="font-size:10px;margin-top:2px;opacity:0.6;">SSTB path</div>
+      </div>
+    </div>
+
+    <!-- Arrows down -->
+    <div style="display:flex;gap:16px;margin-bottom:4px;">
+      <div style="flex:1;display:flex;justify-content:space-around;">
+        <div style="text-align:center;">
+          <div id="arr-th-y" class="fc-arrow mx-auto" style="width:2px;height:20px;"></div>
+          <div style="color:#64748b;font-size:10px;">Yes</div>
+        </div>
+        <div style="text-align:center;">
+          <div id="arr-th-n" class="fc-arrow mx-auto" style="width:2px;height:20px;"></div>
+          <div style="color:#64748b;font-size:10px;">No</div>
+        </div>
+      </div>
+      <div style="flex:1;display:flex;justify-content:space-around;">
+        <div style="text-align:center;">
+          <div id="arr-sth-y" class="fc-arrow mx-auto" style="width:2px;height:20px;"></div>
+          <div style="color:#64748b;font-size:10px;">Yes</div>
+        </div>
+        <div style="text-align:center;">
+          <div id="arr-sth-n" class="fc-arrow mx-auto" style="width:2px;height:20px;"></div>
+          <div style="color:#64748b;font-size:10px;">No</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3: Mid-level nodes -->
+    <div style="display:flex;gap:16px;margin-bottom:6px;">
+      <div style="flex:1;display:flex;gap:8px;">
+        <div id="node-outcome-full" class="fc-node rounded text-center" style="flex:1;padding:8px;">
+          <div style="font-weight:600;color:#61c08e;">Full Deduction</div>
+          <div style="font-size:10px;opacity:0.7;margin-top:2px;">QBI × 20%</div>
+        </div>
+        <div id="node-phase-in" class="fc-node rounded text-center" style="flex:1;padding:8px;">
+          <div style="font-weight:600;">Phase-in Range</div>
+          <div style="font-size:10px;opacity:0.7;margin-top:2px;">Partial W-2 limit</div>
+        </div>
+      </div>
+      <div style="flex:1;display:flex;gap:8px;">
+        <div id="node-outcome-sstb-full" class="fc-node rounded text-center" style="flex:1;padding:8px;">
+          <div style="font-weight:600;color:#61c08e;">Full Deduction</div>
+          <div style="font-size:10px;opacity:0.7;margin-top:2px;">QBI × 20%</div>
+        </div>
+        <div id="node-over-full" class="fc-node rounded text-center" style="flex:1;padding:8px;">
+          <div style="font-weight:600;">Above Threshold</div>
+          <div style="font-size:10px;opacity:0.7;margin-top:2px;">W-2/SSTB rules</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Arrows to outcomes -->
+    <div style="display:flex;gap:16px;margin-bottom:4px;">
+      <div style="flex:1;display:flex;justify-content:flex-end;padding-right:4px;">
+        <div id="arr-phase-down" class="fc-arrow" style="width:2px;height:18px;"></div>
+      </div>
+      <div style="flex:1;display:flex;justify-content:flex-end;padding-right:4px;">
+        <div id="arr-of-down" class="fc-arrow" style="width:2px;height:18px;"></div>
+      </div>
+    </div>
+
+    <!-- Row 4: Final outcomes -->
+    <div style="display:flex;gap:16px;">
+      <div style="flex:1;display:flex;gap:8px;">
+        <div id="node-outcome-reduced" class="fc-node rounded text-center" style="flex:1;padding:8px;">
+          <div style="font-weight:600;color:#f59e0b;">Reduced Deduction</div>
+          <div style="font-size:10px;opacity:0.7;margin-top:2px;">W-2 limit phased in</div>
+        </div>
+        <div id="node-outcome-wage" class="fc-node rounded text-center" style="flex:1;padding:8px;">
+          <div style="font-weight:600;">W-2 Limited</div>
+          <div style="font-size:10px;opacity:0.7;margin-top:2px;">Lesser of QBI×20% or limit</div>
+        </div>
+      </div>
+      <div style="flex:1;display:flex;gap:8px;">
+        <div id="node-outcome-sstb-reduced" class="fc-node rounded text-center" style="flex:1;padding:8px;">
+          <div style="font-weight:600;color:#f59e0b;">Reduced Deduction</div>
+          <div style="font-size:10px;opacity:0.7;margin-top:2px;">SSTB phase-in</div>
+        </div>
+        <div id="node-outcome-zero" class="fc-node rounded text-center" style="flex:1;padding:8px;">
+          <div style="font-weight:600;color:#f87171;">No Deduction</div>
+          <div style="font-size:10px;opacity:0.7;margin-top:2px;">SSTB above full limit</div>
+        </div>
+      </div>
+    </div>
+
+  </div>`;
+}
+
+function updateFlowchart(path, zone, btype) {
+  const allNodes = [
+    'node-sstb','node-threshold','node-sstb-threshold','node-over-full','node-phase-in',
+    'node-outcome-full','node-outcome-reduced','node-outcome-wage',
+    'node-outcome-zero','node-outcome-sstb-full','node-outcome-sstb-reduced'
+  ];
+  const allArrows = ['arr-no','arr-yes','arr-th-y','arr-th-n','arr-sth-y','arr-sth-n','arr-phase-down','arr-of-down'];
+
+  allNodes.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('active','inactive');
+    el.classList.add(path.includes(id) ? 'active' : 'inactive');
+  });
+  allArrows.forEach(id => {
+    document.getElementById(id)?.classList.remove('active');
+  });
+
+  // Activate relevant arrows
+  if (path.includes('node-sstb')) {
+    document.getElementById(btype === 'sstb' ? 'arr-yes' : 'arr-no')?.classList.add('active');
+  }
+  if (path.includes('node-threshold')) {
+    document.getElementById(zone === 'below' ? 'arr-th-y' : 'arr-th-n')?.classList.add('active');
+  }
+  if (path.includes('node-sstb-threshold')) {
+    document.getElementById(zone === 'below' ? 'arr-sth-y' : 'arr-sth-n')?.classList.add('active');
+  }
+  if (path.includes('node-outcome-reduced') || path.includes('node-outcome-wage')) {
+    document.getElementById('arr-phase-down')?.classList.add('active');
+  }
+  if (path.includes('node-outcome-zero') || path.includes('node-outcome-sstb-reduced')) {
+    document.getElementById('arr-of-down')?.classList.add('active');
+  }
+}
+
+// ============================================================
+// THRESHOLD BAR
+// ============================================================
+function renderThresholdBar(ti, filing) {
+  const T = THRESHOLDS[filing];
+  const max = T.fullLimit * 1.35;
+  const pct = v => (Math.min(v, max) / max * 100).toFixed(1);
+  const tiPct   = pct(ti);
+  const thPct   = pct(T.threshold);
+  const fullPct = pct(T.fullLimit);
+
+  document.getElementById('threshold-bar-wrap').innerHTML = `
+    <div style="position:relative;height:24px;border-radius:3px;overflow:hidden;background:#16293c;">
+      <div style="position:absolute;left:0;top:0;height:100%;width:${thPct}%;background:rgba(97,192,142,0.25);"></div>
+      <div style="position:absolute;left:${thPct}%;top:0;height:100%;width:${parseFloat(fullPct)-parseFloat(thPct)}%;background:rgba(245,158,11,0.25);"></div>
+      <div style="position:absolute;left:${fullPct}%;top:0;height:100%;right:0;background:rgba(248,113,113,0.2);"></div>
+      ${ti > 0 ? `<div style="position:absolute;top:0;bottom:0;left:${tiPct}%;width:3px;background:#2DD4BF;box-shadow:0 0 8px #2DD4BF;z-index:2;"></div>` : ''}
+      <div style="position:absolute;left:${thPct}%;top:0;bottom:0;width:1px;background:rgba(245,158,11,0.5);"></div>
+      <div style="position:absolute;left:${fullPct}%;top:0;bottom:0;width:1px;background:rgba(248,113,113,0.5);"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:#64748b;margin-top:3px;">
+      <span style="color:#61c08e;">Below threshold</span>
+      <span style="color:#f59e0b;">Phase-in: ${fmt(T.threshold)} – ${fmt(T.fullLimit)}</span>
+      <span style="color:#f87171;">Full limit</span>
+    </div>
+    ${ti > 0 ? `<div style="font-size:11px;color:#2DD4BF;margin-top:2px;">▲ Client: ${fmt(ti)}</div>` : ''}
+  `;
+}
+
+// ============================================================
+// CALC BREAKDOWN
+// ============================================================
+function renderBreakdown(steps) {
+  document.getElementById('calc-breakdown').innerHTML = steps.map(s => {
+    if (s.value === null) {
+      return `<div style="font-size:11px;color:#475569;padding:4px 0;border-top:1px solid #254d6a;margin-top:2px;">${s.label}</div>`;
+    }
+    const val = s.format === 'pct' ? (s.value * 100).toFixed(1) + '%' : fmt(s.value);
+    const note = s.note ? `<span style="color:#475569;font-size:11px;margin-left:4px;">(${s.note})</span>` : '';
+    const style = s.highlight
+      ? 'color:#addbc2;font-weight:600;'
+      : 'color:#94a3b8;';
+    return `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 0;${style}">
+      <span style="font-size:12px;">${s.label}${note}</span>
+      <span style="font-size:13px;font-variant-numeric:tabular-nums;margin-left:12px;white-space:nowrap;">${val}</span>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// SENSITIVITY
+// ============================================================
+const SENSITIVITY_SCENARIOS = [
+  {
+    label: 'Add $10,000 in W-2 wages',
+    mod: s => ({...s, w2Wages: s.w2Wages + 10000}),
+    explanation: [
+      `When taxable income exceeds the §199A threshold, the QBI deduction is limited to the greater of (a) 50% of W-2 wages or (b) 25% of W-2 wages plus 2.5% of qualified property basis. Adding W-2 wages increases both tests simultaneously, which can directly raise the deduction ceiling for high-income taxpayers currently constrained by the wage limitation.`,
+      `This is especially actionable for S-corp owners who control their own compensation. An owner currently paying themselves below-market wages to minimize payroll taxes may be suppressing their own QBI deduction more than the payroll tax savings justify. A modest salary increase should always be modeled against its QBI impact before implementation.`
+    ],
+    ref: 'Reference: Form 8995-A Instructions, Part II (W-2 Wage Limitation); IRC §199A(b)(2)'
+  },
+  {
+    label: 'Add $100,000 qualified property',
+    mod: s => ({...s, qualProperty: s.qualProperty + 100000}),
+    explanation: [
+      `The W-2/property limitation offers two tracks: 50% of wages alone, or 25% of wages plus 2.5% of the unadjusted basis of qualified property. For capital-intensive businesses with relatively few employees — real estate operations, equipment leasing, manufacturing — the property track can substantially increase the deduction ceiling where the wage-only track falls short.`,
+      `Qualified property must be tangible, depreciable, and used in the business during the year. It must also still be within its MACRS recovery period or the last 10 years, whichever is longer. Advisors should cross-reference the client's depreciation schedule (Form 4562) and note that real property held in the business counts — making this a meaningful variable for real estate investors.`
+    ],
+    ref: 'Reference: IRS Publication 535, Chapter 12; Treasury Reg. §1.199A-2(c)'
+  },
+  {
+    label: '$20,000 Roth conversion (raises taxable income)',
+    mod: s => ({...s, taxableIncome: s.taxableIncome + 20000}),
+    explanation: [
+      `A Roth conversion is included in taxable income in the year of conversion and can push a client into or further through the §199A phase-in range — reducing or eliminating the QBI deduction. For clients near the threshold, a conversion that appears efficient from a tax-bracket perspective may carry a hidden cost in the form of a diminished QBI deduction.`,
+      `Advisors should model QBI impact as part of every Roth conversion analysis. For clients in the phase-in range, consider splitting large conversions across multiple tax years to avoid a sharp cliff. The interaction between Roth conversions and QBI is one of the more underappreciated planning variables in the current tax code.`
+    ],
+    ref: 'Reference: IRS Notice 2019-07; Treasury Reg. §1.199A-1(b)(5); IRS Publication 590-A'
+  },
+  {
+    label: 'Reduce taxable income $20,000 (e.g. retirement contribution)',
+    mod: s => ({...s, taxableIncome: Math.max(0, s.taxableIncome - 20000)}),
+    explanation: [
+      `Reducing taxable income through pre-tax retirement contributions (SEP-IRA, Solo 401(k), defined benefit plan), accelerating deductions, or deferring income can move a client below the phase-in threshold and restore the full 20% deduction. Even a partial reduction within the phase-in range improves the blended deduction proportionally.`,
+      `The most powerful lever is typically a qualified retirement plan contribution, which reduces taxable income dollar-for-dollar. For a business owner near the upper end of the phase-in range, a $50,000-$100,000 retirement plan contribution can recover tens of thousands in QBI deduction value — often far exceeding the value of the contribution itself in the year of the tax benefit.`
+    ],
+    ref: 'Reference: IRS Publication 560 (Retirement Plans for Small Business); Form 8995-A Instructions'
+  },
+];
+
+function toggleSens(idx) {
+  const detail   = document.getElementById(`sens-detail-${idx}`);
+  const chevron  = document.getElementById(`sens-chev-${idx}`);
+  const isOpen   = detail.classList.contains('open');
+  detail.classList.toggle('open', !isOpen);
+  chevron.classList.toggle('open', !isOpen);
+}
+
+function renderSensitivity(baseDeduction) {
+  let ui = '', pdf = '';
+
+  SENSITIVITY_SCENARIOS.forEach((sc, i) => {
+    const { deduction: nd } = calcQBI(sc.mod(state));
+    const delta = nd - baseDeduction;
+    const ds    = (delta >= 0 ? '+' : '') + fmt(delta);
+    const uiCls = delta >= 0 ? 'sens-delta-pos' : 'sens-delta-neg';
+    const pdfColor = delta >= 0 ? '#16a34a' : '#dc2626';
+
+    // Expandable UI row
+    const paras = sc.explanation.map(p => `<p>${p}</p>`).join('');
+    ui += `
+      <div class="sens-row" onclick="toggleSens(${i})">
+        <div class="sens-label">
+          <span class="sens-chevron" id="sens-chev-${i}">&#9658;</span>
+          ${sc.label}
+        </div>
+        <div style="text-align:right;font-size:13px;white-space:nowrap;">${fmt(nd)}</div>
+        <div style="text-align:right;font-size:13px;white-space:nowrap;min-width:52px;" class="${uiCls}">${ds}</div>
+      </div>
+      <div class="sens-detail" id="sens-detail-${i}">
+        ${paras}
+        <div class="sens-ref">${sc.ref}</div>
+      </div>`;
+
+    // Compact PDF row (no expansion needed in print)
+    pdf += `<tr style="border-bottom:1px solid #f0f0f0;">
+      <td style="padding:3px 0;font-size:11px;">${sc.label}</td>
+      <td style="padding:3px 0;text-align:right;font-size:11px;">${fmt(nd)}</td>
+      <td style="padding:3px 0;text-align:right;font-size:11px;color:${pdfColor};">${ds}</td>
+    </tr>`;
+  });
+
+  document.getElementById('sensitivity-table').innerHTML = ui;
+  document.getElementById('pdf-sensitivity').innerHTML = pdf;
+}
+
+// ============================================================
+// VERDICT
+// ============================================================
+function verdictText(deduction, zone, btype, filing) {
+  const T = THRESHOLDS[filing];
+  if (zone === 'below')
+    return `Taxable income is below the ${fmt(T.threshold)} threshold. The full 20% deduction applies.`;
+  if (btype === 'sstb' && zone === 'above')
+    return `SSTB income exceeds the ${fmt(T.fullLimit)} full limit. The QBI deduction is eliminated.`;
+  if (btype === 'sstb')
+    return `SSTB income falls in the phase-in range. The deduction is proportionally reduced.`;
+  if (zone === 'phase')
+    return `Non-SSTB income is in the phase-in range. The W-2/property limitation is being phased in.`;
+  return `Non-SSTB income exceeds the full limit. Deduction is capped at the W-2/property limitation.`;
+}
+
+// ============================================================
+// PDF FIELDS
+// ============================================================
+function updatePDFFields(deduction, steps, path, zone) {
+  const clientName = document.getElementById('client-name').value || 'Client';
+  const advisor    = document.getElementById('advisor-name').value || 'Your Advisor';
+  const today      = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+
+  document.getElementById('pdf-client-name').textContent        = clientName;
+  document.getElementById('pdf-date').textContent               = today;
+  document.getElementById('pdf-deduction-headline').textContent = fmt(deduction) + ' estimated deduction';
+  document.getElementById('pdf-verdict-text').textContent       = verdictText(deduction, zone, state.btype, state.filing);
+  document.getElementById('pdf-footer').textContent             = `Prepared by ${advisor} | Rose Financial Management | rosefinancialmanagement.com`;
+  document.getElementById('pdf-disclaimer').textContent         = `This analysis is for educational and planning purposes only and does not constitute tax advice. Please consult a qualified tax professional before making decisions based on this information. Calculations use ${YEAR_CONFIG[state.taxYearIdx].label} IRS thresholds.`;
+
+  // Build client inputs summary — two columns of label/value pairs
+  const T = THRESHOLDS[state.filing];
+  const inputFields = [
+    ['Tax Year',                   YEAR_CONFIG[state.taxYearIdx].label],
+    ['Filing Status',              state.filing === 'mfj' ? 'Married Filing Jointly' : 'All Other Filers'],
+    ['Business Type',              state.btype === 'sstb' ? 'SSTB' : 'Non-SSTB'],
+    ['Taxable Income',             fmt(state.taxableIncome)],
+    ['QBI Threshold',              fmt(T.threshold) + ' (phase-in to ' + fmt(T.fullLimit) + ')'],
+    ['Qualified Business Income',  fmt(state.qbi)],
+    ['W-2 Wages Paid',             fmt(state.w2Wages)],
+    ['Qualified Property Basis',   fmt(state.qualProperty)],
+    ...(state.reitDiv   > 0 ? [['REIT Dividends',  fmt(state.reitDiv)]]   : []),
+    ...(state.ptpIncome > 0 ? [['PTP Income',       fmt(state.ptpIncome)]] : []),
+  ];
+
+  const rowStyle = 'display:flex;justify-content:space-between;align-items:baseline;padding:2px 6px 2px 0;border-bottom:1px solid #f0f0f0;';
+  document.getElementById('pdf-inputs').innerHTML = inputFields.map(([label, value]) =>
+    `<div style="${rowStyle}">
+      <span style="font-size:10px;color:#666;">${label}</span>
+      <span style="font-size:11px;font-weight:600;color:#111;font-family:monospace;margin-left:8px;">${value}</span>
+    </div>`
+  ).join('');
+
+  const pathLabels = {
+    'node-sstb':               state.btype === 'sstb' ? '[YES] Business type: Specified Service Trade or Business (SSTB)' : '[NO] Business type: Non-SSTB',
+    'node-threshold':          zone === 'below' ? '[YES] Taxable income is at or below the threshold. Full deduction applies.' : '[NO] Taxable income exceeds the threshold.',
+    'node-sstb-threshold':     zone === 'below' ? '[YES] SSTB: income at or below threshold. Full deduction applies.' : '[NO] SSTB: income exceeds threshold.',
+    'node-phase-in':           '[IN RANGE] Income falls in the phase-in range. Partial limitation applies.',
+    'node-over-full':          state.btype === 'sstb' ? '[ABOVE] SSTB: income exceeds full phase-in limit.' : '[ABOVE] Non-SSTB: income exceeds full limit. Full W-2/property limitation applies.',
+    'node-outcome-full':       '[RESULT] Full 20% deduction applies.',
+    'node-outcome-sstb-full':  '[RESULT] Full 20% deduction applies.',
+    'node-outcome-reduced':    '[RESULT] Deduction reduced. W-2/property limitation partially applied.',
+    'node-outcome-wage':       '[RESULT] Deduction limited to W-2/property limitation.',
+    'node-outcome-sstb-reduced':'[RESULT] SSTB deduction partially reduced.',
+    'node-outcome-zero':       '[RESULT] QBI deduction is $0. SSTB above full phase-in limit.',
+  };
+
+  document.getElementById('pdf-path').innerHTML = path
+    .filter(id => pathLabels[id])
+    .map(id => `<div style="padding:1px 0;">${pathLabels[id]}</div>`)
+    .join('');
+
+  document.getElementById('pdf-math').innerHTML = steps
+    .filter(s => s.value !== null)
+    .map(s => {
+      const val = s.format === 'pct' ? (s.value * 100).toFixed(1) + '%' : fmt(s.value);
+      const st  = s.highlight ? 'font-weight:700;color:#0a5e35;' : 'color:#333;';
+      return `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #f0f0f0;font-size:11px;${st}">
+        <span>${s.label}</span>
+        <span style="font-family:monospace;margin-left:8px;white-space:nowrap;">${val}</span>
+      </div>`;
+    }).join('');
+}
+
+// ============================================================
+// MAIN RECALC
+// ============================================================
+function recalcAll() {
+  const { deduction, steps, path, zone } = calcQBI(state);
+
+  document.getElementById('result-headline').textContent = fmt(deduction);
+  document.getElementById('result-verdict').textContent  = verdictText(deduction, zone, state.btype, state.filing);
+
+  updateFlowchart(path, zone, state.btype);
+  renderThresholdBar(state.taxableIncome, state.filing);
+  renderBreakdown(steps);
+  renderSensitivity(deduction);
+  updatePDFFields(deduction, steps, path, zone);
+}
+
+// ============================================================
+// PDF EXPORT
+// ============================================================
+function exportPDF() {
+  recalcAll();
+  const clientName = document.getElementById('client-name').value || 'Client';
+  const wrapper = document.getElementById('pdf-output');
+  wrapper.style.display = 'block';
+
+  html2pdf()
+    .set({
+      margin:      [10, 10, 10, 10],
+      filename:    `QBI-Analysis-${clientName.replace(/\s+/g,'-')}.pdf`,
+      image:       { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF:       { unit: 'mm', format: 'letter', orientation: 'portrait' },
+    })
+    .from(document.getElementById('pdf-inner'))
+    .save()
+    .then(() => { wrapper.style.display = 'none'; });
+}
+
+// ============================================================
+// INIT
+// ============================================================
+loadSavedConfig();          // restore any localStorage edits first
+THRESHOLDS = YEAR_CONFIG[state.taxYearIdx];
+buildYearToggles();         // render year buttons from YEAR_CONFIG
+renderFlowchart();
+recalcAll();
+</script>
+</body>
+</html>
