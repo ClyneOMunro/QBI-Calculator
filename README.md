@@ -1,6 +1,6 @@
 # §199A QBI Deduction Calculator
 
-An interactive, single-page calculator for the **Section 199A Qualified Business Income (QBI) Deduction**, built for use by financial advisors at Rose Financial Management. No installation or backend required — open `index.html` in any modern browser.
+An interactive, single-page calculator for the **Section 199A Qualified Business Income (QBI) Deduction**, built for use by financial advisors at Rose Financial Management. No installation or backend required — open `(https://clyneomunro.github.io/QBI-Calculator/)` in any modern browser.
 
 ---
 
