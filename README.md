@@ -1,6 +1,6 @@
 # §199A QBI Deduction Calculator
 
-An interactive, single-page calculator for the **Section 199A Qualified Business Income (QBI) Deduction**, built for use by financial advisors at Rose Financial Management. No installation or backend required — open `(https://clyneomunro.github.io/QBI-Calculator/)` in any modern browser.
+An interactive, single-page calculator for the **Section 199A Qualified Business Income (QBI) Deduction**, built for use by financial advisors at Rose Financial Management. No installation or backend required — open `index.html` in any modern browser.
 
 ---
 
@@ -44,7 +44,7 @@ All dollar fields accept formatted input (e.g., `$394,600`) and strip to raw num
 
 Use the **2025 / 2026** toggle at the top to switch between tax year thresholds. The deduction limits, phase-in ranges, and all calculations update instantly.
 
-> **Note:** 2026 thresholds are estimated based on ~2.8% COLA from 2025. Verify against the IRS Revenue Procedure once published (expected late 2025).
+> **2026 thresholds** reflect the IRS-published phase-in ranges: MFJ $403,500–$553,500; Other $201,750–$276,750. Note the 2026 phase-in ranges are wider than prior years ($150,000 MFJ / $75,000 Other).
 
 ### 4. Read the Results
 

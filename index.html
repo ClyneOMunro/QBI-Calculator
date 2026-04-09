@@ -143,17 +143,17 @@
   </div>
   <div class="flex items-center gap-3">
     <!-- Tax Year Toggle (built dynamically by buildYearToggles()) -->
-    <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
-      <span style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Tax Year</span>
-      <div style="display:flex;align-items:center;gap:6px;">
+    <div style="display:flex;align-items:center;gap:6px;">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+        <span style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Tax Year</span>
         <div id="year-toggle-btns" class="toggle-group" style="border-color:#345e7a;"></div>
-        <button onclick="openThresholdEditor()" title="Edit threshold constants"
-          style="background:transparent;border:1px solid #345e7a;color:#94a3b8;border-radius:4px;padding:5px 9px;font-size:12px;cursor:pointer;line-height:1;transition:all 0.15s;"
-          onmouseover="this.style.borderColor='#2DD4BF';this.style.color='#2DD4BF';"
-          onmouseout="this.style.borderColor='#345e7a';this.style.color='#94a3b8';">
-          &#9998; Edit
-        </button>
       </div>
+      <button onclick="openThresholdEditor()" title="Edit threshold constants"
+        style="background:transparent;border:1px solid #345e7a;color:#94a3b8;border-radius:4px;padding:5px 9px;font-size:12px;cursor:pointer;line-height:1;transition:all 0.15s;margin-top:13px;"
+        onmouseover="this.style.borderColor='#2DD4BF';this.style.color='#2DD4BF';"
+        onmouseout="this.style.borderColor='#345e7a';this.style.color='#94a3b8';">
+        &#9998; Edit
+      </button>
     </div>
     <div style="width:1px;height:32px;background:#254d6a;"></div>
     <input type="text" id="advisor-name" placeholder="Advisor name" style="width:160px;font-size:12px;padding:5px 9px;">
@@ -445,11 +445,10 @@ const DEFAULT_YEAR_CONFIG = [
     other: { threshold: 197300, phaseRange:  50000, fullLimit: 247300 },
   },
   {
-    // NOTE: 2026 thresholds are ESTIMATED (~2.8% COLA from 2025).
-    // Verify against IRS Rev. Proc. once published (expected late 2025).
+    // 2026 thresholds per IRS published figures.
     label: '2026',
-    mfj:   { threshold: 406400, phaseRange: 100000, fullLimit: 506400 },
-    other: { threshold: 203200, phaseRange:  50000, fullLimit: 253200 },
+    mfj:   { threshold: 403500, phaseRange: 150000, fullLimit: 553500 },
+    other: { threshold: 201750, phaseRange:  75000, fullLimit: 276750 },
   },
 ];
 
